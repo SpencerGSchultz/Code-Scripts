@@ -1,0 +1,23 @@
+{
+  "source": {
+    "name": "Private I Actual",
+    "type": "html",
+    "login_url": "https://accounts.msci.com/u/login",
+    "username": "spencer.schultz@msci.com",
+    "password": "$pence_$ch210897",
+    "transactions_url": "https://privatei.burgiss.com/lpinvestments",
+    "pagination_param": "page",
+    "columns": {
+      "0": "transaction_id",
+      "1": "date",
+      "2": "fund",
+      "3": "description",
+      "4": "currency",
+      "5": "amount"
+    }
+  },
+  "target": {
+    "name": "Caissa Dummy",
+    "api_url": "http://127.0.0.1:5000/ledger"
+  }
+}

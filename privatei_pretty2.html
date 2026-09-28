@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Private I — Ledger (Dummy) — Gated</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <style>
+    /* ---------- Layout ---------- */
+    :root{
+      --nav-width: 220px;
+      --accent: #0f5bb6;
+      --muted: #6b7280;
+      --bg: #f6f8fb;
+      --card: #ffffff;
+      --table-border: #e6e9ef;
+      --danger: #e53e3e;
+      --disabled: #cfd6e3;
+    }
+    html,body{height:100%;margin:0;font-family:Inter, Roboto, "Segoe UI", Arial, sans-serif;background:var(--bg);color:#111}
+    .app { display:flex; min-height:100vh; }
+
+    /* ---------- Sidebar ---------- */
+    .sidebar{
+      width:var(--nav-width);
+      background:linear-gradient(180deg,var(--accent), #154f9d);
+      color:white;
+      padding:20px 16px;
+      box-sizing:border-box;
+      display:flex;
+      flex-direction:column;
+      gap:20px;
+    }
+    .logo { font-weight:700; font-size:18px; letter-spacing:0.3px }
+    .nav-item { padding:8px 10px; border-radius:6px; color:rgba(255,255,255,0.9); display:flex; align-items:center; gap:10px; cursor:pointer; }
+    .nav-item:hover{ background: rgba(255,255,255,0.06) }
+
+    /* ---------- Main area ---------- */
+    .main { flex:1; padding:18px; box-sizing:border-box; }
+
+    /* Header */
+    .topbar{ display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:18px; }
+    .top-left { display:flex; gap:12px; align-items:center }
+    .app-title{ font-size:20px; font-weight:700; }
+    .controls { display:flex; gap:8px; align-items:center }
+
+    .btn { background:var(--accent); color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; font-weight:600; }
+    .btn.ghost { background:transparent; color:var(--muted); border:1px solid #e8e9ee; font-weight:600; }
+    .btn.disabled { background:var(--disabled); cursor:not-allowed; color:#666; border-color:var(--disabled); }
+
+    /* ---------- Card / table area ---------- */
+    .card { background:var(--card); border-radius:10px; padding:14px; box-shadow: 0 2px 6px rgba(18,24,36,0.04); border:1px solid #eef0f4; }
+    .tools { display:flex; gap:8px; align-items:center; margin-bottom:12px }
+    input[type="search"]{ padding:8px 10px; border-radius:6px; border:1px solid #dde3ef; min-width:260px; }
+
+    /* Table */
+    table { width:100%; border-collapse:collapse; font-size:14px; }
+    thead th { text-align:left; padding:12px 10px; background:#f4f6fb; color:#222; border-bottom:1px solid var(--table-border); font-weight:700; }
+    tbody tr { border-bottom:1px solid var(--table-border); }
+    tbody td { padding:12px 10px; color:#222; vertical-align:middle; }
+    tbody tr:nth-child(even) td { background: #fbfcff }
+    .amount { text-align:right; font-weight:600; }
+    .muted { color:var(--muted); font-size:13px }
+
+    .pagination { margin-top:12px; display:flex; gap:8px; align-items:center; justify-content:flex-end }
+    .page { padding:6px 8px; border-radius:6px; border:1px solid #e8eef6; background:white; cursor:pointer; }
+    .page.active { background:var(--accent); color:white; border-color:var(--accent) }
+
+    /* Login modal (very basic) */
+    .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0.45); display:flex; align-items:center; justify-content:center; z-index:999; }
+    .modal { width:360px; background:var(--card); padding:18px; border-radius:10px; box-shadow:0 8px 30px rgba(16,24,40,0.2) }
+    .field { display:flex; flex-direction:column; gap:6px; margin-bottom:10px }
+    .field input { padding:9px 10px; border-radius:6px; border:1px solid #e6e9ef }
+    .small { font-size:13px; color:var(--muted) }
+
+    /* Disabled overlay to show UI is locked when not signed in */
+    .locked-overlay {
+      position: absolute;
+      inset:0;
+      background: rgba(255,255,255,0.6);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:50;
+      pointer-events:none;
+    }
+    .locked-overlay.visible { display:flex; pointer-events:auto; }
+
+    /* responsive */
+    @media (max-width:900px){
+      .sidebar{ display:none }
+      .topbar .app-title{ font-size:18px }
+      input[type="search"]{ min-width:140px }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app" id="appRoot">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="logo">Private I — Demo</div>
+      <div class="muted small">Admin</div>
+
+      <div class="nav-item">🏠 Overview</div>
+      <div class="nav-item" style="background:rgba(255,255,255,0.06)">📄 Transactions</div>
+      <div class="nav-item">📊 Reports</div>
+      <div class="nav-item">⚙️ Settings</div>
+
+      <div style="flex:1"></div>
+      <div class="muted small">v1.0 • Dummy</div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main" style="position:relative;">
+      <!-- locked overlay: shows when user is not signed in -->
+      <div id="lockedOverlay" class="locked-overlay">
+        <div class="card" style="text-align:center; max-width:420px;">
+          <div style="font-weight:700; font-size:18px; margin-bottom:8px;">This demo is locked</div>
+          <div class="small muted" style="margin-bottom:12px;">Please sign in to view ledger data (this is a local demo).</div>
+          <button id="openLoginFromOverlay" class="btn">Sign in</button>
+        </div>
+      </div>
+
+      <div class="topbar">
+        <div class="top-left">
+          <div class="app-title">Transactions</div>
+          <div class="muted small">| Private I Dummy</div>
+        </div>
+
+        <div class="controls">
+          <div class="muted small" id="signedStatus">Signed out</div>
+          <button class="btn" id="loginBtn">Sign in</button>
+          <button class="btn ghost" id="logoutBtn" style="display:none;">Sign out</button>
+        </div>
+      </div>
+
+      <!-- Card with table -->
+      <div class="card" id="cardArea" aria-live="polite">
+        <div class="tools" style="justify-content:space-between">
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input type="search" id="searchBox" placeholder="Search description, fund or date...">
+            <button class="btn ghost" id="refreshBtn">Refresh</button>
+          </div>
+
+          <div class="small muted">Showing <b id="showCount">0</b> rows</div>
+        </div>
+
+        <div style="overflow:auto">
+          <table id="ledgerTable" role="table" aria-label="Ledger entries">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Description</th>
+                <th class="amount">Amount</th>
+                <th>Currency</th>
+                <th>Fund</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- rows inserted by JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <div class="pagination" id="pagination">
+          <!-- pages created by JS -->
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- LOGIN modal (hidden/visible via JS) -->
+  <div class="modal-backdrop" id="modalBackdrop" role="dialog" aria-modal="true" style="display:none;">
+    <div class="modal" aria-labelledby="loginTitle">
+      <h3 id="loginTitle">Sign in to Private I (dummy)</h3>
+      <p class="small muted">Use default credentials or any username/password (see code). This is a local demo.</p>
+
+      <div class="field">
+        <label class="small">Username</label>
+        <input id="username" type="text" value="">
+      </div>
+      <div class="field">
+        <label class="small">Password</label>
+        <input id="password" type="password" value="">
+      </div>
+
+      <div id="loginError" style="display:none; color:var(--danger); margin-bottom:8px;">Invalid username or password</div>
+
+      <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:8px;">
+        <button class="btn ghost" id="cancelLogin">Cancel</button>
+        <button class="btn" id="submitLogin">Sign in</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /************************************************************************
+     * Gated Private I Dummy
+     *
+     * How it behaves:
+     * - On page load: the UI is LOCKED behind the overlay and login modal
+     * - You must sign in (default: admin / password) to unlock the dashboard
+     * - Log out to lock the dashboard again
+     *
+     * Easy places to edit:
+     * - DEFAULT_USERNAME / DEFAULT_PASSWORD below to change the credential check
+     * - ALLOW_ANY_CREDENTIALS = true will allow ANY username/password (useful for demo)
+     ************************************************************************/
+
+    // ------------- Demo config (edit if you want) ----------------
+    const DEFAULT_USERNAME = "admin";
+    const DEFAULT_PASSWORD = "password";
+    // If true, any username/password is accepted and no validation error is shown.
+    const ALLOW_ANY_CREDENTIALS = false;
+
+    // ------------- Dummy data (replace with your scraped/exported data later) -------------
+    const DUMMY = [
+      ["2026-01-04","Redemption - RTW Offshore Fund One Ltd","1919241.80","USD","RTW Offshore Fund One Ltd"],
+      ["2026-01-01","Capital Outflow - Investors' Capital","1919241.80","USD","Investors' Capital"],
+      ["2025-10-08","Capital Inflow - M13 Ventures IV","550000.00","USD","M13 Ventures IV"],
+      ["2025-10-06","Capital Inflow - Genstar Capital Partners IX","26982.17","USD","Genstar Capital Partners IX"],
+      ["2025-10-03","Capital Inflow - Investors' Capital","3039.51","USD","Investors' Capital"],
+      ["2025-10-03","Intra-Portfolio Contribution - Cash","38452.20","USD","Investors' Capital"],
+      ["2025-10-03","Management Fee - Genstar Capital Partners XI","70593.11","USD","Genstar Capital Partners XI"],
+      ["2025-07-29","Capital Call - Aldine Capital Fund IV LP","412500.00","USD","Aldine Capital Fund IV LP"],
+      ["2025-06-30","Valuation - Aldine Capital Fund IV LP","5293384.00","USD","Aldine Capital Fund IV LP"],
+      ["2025-05-07","Valuation - Aldine Capital Fund IV LP","5374077.00","USD","Aldine Capital Fund IV LP"],
+      ["2025-04-12","Capital Call - BB&T Capital Partners II","3605278.00","USD","BB&T Capital Partners II"],
+      ["2025-03-14","Valuation - Blue Sage Strategic Credit Fund","2543482.00","USD","Blue Sage Strategic Credit Fund"],
+      ["2025-02-10","Management Fee - Fund A","-5000.00","USD","Fund A"],
+      ["2025-03-05","Distribution - Fund A","20000.00","USD","Fund A"],
+      ["2025-01-15","Capital Call - Fund A","100000.00","USD","Fund A"],
+      ["2025-04-12","Capital Call - Fund B","75000.00","USD","Fund B"],
+      ["2025-05-20","Distribution - Fund B","15000.00","USD","Fund B"],
+      ["2025-06-15","Capital Call - Fund C","50000.00","USD","Fund C"]
+    ];
+
+    // ---------- state ----------
+    let rows = [...DUMMY];
+    let filtered = [...rows];
+    const pageSize = 6;
+    let currentPage = 1;
+    let signedIn = false;
+
+    // ---------- helpers ----------
+    function formatAmount(a){
+      const n = Number(a);
+      if (isNaN(n)) return a;
+      return n.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+    }
+
+    function renderTable(){
+      const tbody = document.querySelector("#ledgerTable tbody");
+      tbody.innerHTML = "";
+
+      const start = (currentPage-1)*pageSize;
+      const pageRows = filtered.slice(start, start+pageSize);
+      pageRows.forEach(r=>{
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${r[0]}</td>
+          <td>${r[1]}</td>
+          <td class="amount">${formatAmount(r[2])}</td>
+          <td>${r[3]}</td>
+          <td>${r[4]}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      document.getElementById("showCount").innerText = filtered.length;
+      renderPagination();
+    }
+
+    function renderPagination(){
+      const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
+      const wrap = document.getElementById("pagination");
+      wrap.innerHTML = "";
+
+      for(let p=1;p<=pages;p++){
+        const btn = document.createElement("div");
+        btn.className = "page" + (p===currentPage ? " active" : "");
+        btn.innerText = p;
+        btn.onclick = ()=>{ currentPage=p; renderTable(); };
+        wrap.appendChild(btn);
+      }
+    }
+
+    // ---------- search ----------
+    document.getElementById("searchBox").addEventListener("input", (e)=>{
+      const q = e.target.value.trim().toLowerCase();
+      filtered = rows.filter(r =>
+        r.join(" ").toLowerCase().includes(q)
+      );
+      currentPage = 1;
+      renderTable();
+    });
+
+    // ---------- refresh (simulate a re-scrape) ----------
+    document.getElementById("refreshBtn").addEventListener("click", ()=>{
+      if (!signedIn) { alert("You must sign in to refresh."); return; }
+      alert("Refresh clicked — in a real flow you'd re-run the scraper or fetch API.");
+    });
+
+    // ---------- login modal behavior ----------
+    const modal = document.getElementById("modalBackdrop");
+    const lockedOverlay = document.getElementById("lockedOverlay");
+    const signedStatus = document.getElementById("signedStatus");
+    const loginBtn = document.getElementById("loginBtn");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const openLoginFromOverlay = document.getElementById("openLoginFromOverlay");
+
+    // show modal
+    function showModal(){ modal.style.display = "flex"; document.getElementById("username").focus(); }
+    // hide modal
+    function hideModal(){ modal.style.display = "none"; }
+
+    // lock/unlock UI
+    function setLocked(locked){
+      const overlay = document.getElementById("lockedOverlay");
+      if (locked){
+        overlay.classList.add("visible");
+        signedStatus.innerText = "Signed out";
+        loginBtn.style.display = "";
+        logoutBtn.style.display = "none";
+        // grey out controls visually
+        document.getElementById("searchBox").disabled = true;
+        document.getElementById("refreshBtn").classList.add("disabled");
+        document.getElementById("refreshBtn").disabled = true;
+      } else {
+        overlay.classList.remove("visible");
+        signedStatus.innerText = "Signed in as " + (document.getElementById("username").value || "demo.user");
+        loginBtn.style.display = "none";
+        logoutBtn.style.display = "";
+        document.getElementById("searchBox").disabled = false;
+        document.getElementById("refreshBtn").classList.remove("disabled");
+        document.getElementById("refreshBtn").disabled = false;
+      }
+      signedIn = !locked ? true : false;
+    }
+
+    // call this to try to sign in
+    function attemptSignIn(){
+      const u = document.getElementById("username").value.trim();
+      const p = document.getElementById("password").value.trim();
+      const err = document.getElementById("loginError");
+
+      if (ALLOW_ANY_CREDENTIALS){
+        err.style.display = "none";
+        hideModal();
+        setLocked(false);
+        renderTable();
+        return;
+      }
+
+      if (u === DEFAULT_USERNAME && p === DEFAULT_PASSWORD){
+        err.style.display = "none";
+        hideModal();
+        setLocked(false);
+        renderTable();
+      } else {
+        err.style.display = "block";
+      }
+    }
+
+    // show login modal on load (gated immediately)
+    window.addEventListener("load", ()=>{
+      // lock UI first
+      setLocked(true);
+      // show the modal automatically so user can sign in
+      showModal();
+    });
+
+    // wire buttons
+    document.getElementById("loginBtn").addEventListener("click", showModal);
+    document.getElementById("cancelLogin").addEventListener("click", ()=>{
+      hideModal();
+    });
+    document.getElementById("submitLogin").addEventListener("click", attemptSignIn);
+    document.getElementById("openLoginFromOverlay").addEventListener("click", showModal);
+    logoutBtn.addEventListener("click", ()=>{
+      // clear username field for demo
+      document.getElementById("username").value = "";
+      document.getElementById("password").value = "";
+      setLocked(true);
+      showModal();
+    });
+
+    // allow Enter key in password field to submit
+    document.getElementById("password").addEventListener("keydown", function(e){
+      if (e.key === "Enter") attemptSignIn();
+    });
+    document.getElementById("username").addEventListener("keydown", function(e){
+      if (e.key === "Enter") document.getElementById("password").focus();
+    });
+
+    // ---------- initial render ----------
+    renderTable();
+  </script>
+</body>
+</html>

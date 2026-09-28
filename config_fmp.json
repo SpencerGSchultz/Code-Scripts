@@ -1,0 +1,17 @@
+{
+  "source": {
+    "name": "Financial Modeling Prep",
+    "type": "api",
+    "transactions_url": "https://financialmodelingprep.com/api/v3/quote/AAPL?apikey=YOUR_API_KEY",
+    "columns": {
+      "symbol": "ticker",
+      "price": "price",
+      "volume": "volume",
+      "timestamp": "date"
+    }
+  },
+  "target": {
+    "name": "CSV Export",
+    "file_path": "fmp_output.csv"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "source": {
+    "name": "Private I Actual",
+    "login_url": "https://privatei.yourfirm.com/login",
+    "transactions_url": "https://privatei.yourfirm.com/transactions",
+    "username": "spencer.schultz@msci.com",
+    "password": "$pence_$ch210897",
+    "verify": true,
+    "ca_bundle": "C:\\Users\\schuspe\\OneDrive - MSCI Office 365\\Project Ideas\\privatei_chain.pem"
+  },
+  "target": {
+    "name": "Caissa Dummy",
+    "api_url": "http://127.0.0.1:5000/ledger"
+  }
+}
